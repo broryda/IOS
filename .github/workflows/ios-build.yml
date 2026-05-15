@@ -3,6 +3,9 @@ name: iOS Build
 on:
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-ios:
     runs-on: macos-latest
@@ -23,11 +26,9 @@ jobs:
         with:
           ruby-version: '3.2'
           bundler-cache: true
-          working-directory: ios
 
       - name: Install CocoaPods
-        run: bundle exec pod install
-        working-directory: ios
+        run: cd ios && bundle exec pod install
 
       - name: Build unsigned archive
         run: |
