@@ -23,12 +23,13 @@ jobs:
 
       - name: Bundle JavaScript
         run: |
+          mkdir -p /tmp/ios-bundle
           npx react-native bundle \
             --platform ios \
             --dev false \
             --entry-file index.js \
-            --bundle-output ios/SahwalReact/main.jsbundle \
-            --assets-dest ios/SahwalReact
+            --bundle-output /tmp/ios-bundle/main.jsbundle \
+            --assets-dest /tmp/ios-bundle
 
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
@@ -52,6 +53,26 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Inject bundle and assets into app
+        run: |
+          APP="ios/build/SahwalReact.xcarchive/Products/Applications/SahwalReact.app"
+
+          # JS 번들 주입
+          cp /tmp/ios-bundle/main.jsbundle "$APP/"
+
+          # JS에서 require()로 참조된 이미지/에셋 주입
+          if [ -d /tmp/ios-bundle/assets ]; then
+            cp -r /tmp/ios-bundle/assets "$APP/"
+          fi
+
+          # SGF 바둑 문제 파일 주입 (Android assets와 동일한 구조)
+          mkdir -p "$APP/sgf_ascii"
+          cp android/app/src/main/assets/sgf_ascii/*.sgf "$APP/sgf_ascii/"
+
+          echo "=== App bundle contents ==="
+          ls -lh "$APP/"
+          echo "SGF files: $(ls "$APP/sgf_ascii/" | wc -l)"
+
       - name: Package IPA
         run: |
           mkdir -p ios/build/Payload
@@ -59,6 +80,7 @@ jobs:
             ios/build/Payload/
           cd ios/build
           zip -r SahwalReact.ipa Payload/
+          echo "IPA size: $(du -sh SahwalReact.ipa | cut -f1)"
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
