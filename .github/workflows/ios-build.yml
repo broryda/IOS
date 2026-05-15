@@ -1,0 +1,57 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install JS dependencies
+        run: npm install
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: ios
+
+      - name: Install CocoaPods
+        run: bundle exec pod install
+        working-directory: ios
+
+      - name: Build unsigned archive
+        run: |
+          xcodebuild archive \
+            -workspace ios/SahwalReact.xcworkspace \
+            -scheme SahwalReact \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath ios/build/SahwalReact.xcarchive \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package IPA
+        run: |
+          mkdir -p ios/build/Payload
+          cp -r "ios/build/SahwalReact.xcarchive/Products/Applications/SahwalReact.app" \
+            ios/build/Payload/
+          cd ios/build
+          zip -r SahwalReact.ipa Payload/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SahwalReact-unsigned
+          path: ios/build/SahwalReact.ipa
+          retention-days: 7
